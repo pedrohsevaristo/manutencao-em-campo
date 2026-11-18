@@ -1,0 +1,22 @@
+@model LoginInput
+@{
+    ViewData["Title"] = "Entrar";
+}
+<section class="login-card">
+    <div class="brand brand-light">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Manutenção em Campo</span>
+    </div>
+    <h1>Entrar no painel</h1>
+    <p class="lede">Acesse com sua conta de supervisão.</p>
+    <form asp-action="Login" method="post" class="fields">
+        <div asp-validation-summary="ModelOnly" class="validation" role="alert"></div>
+        <label asp-for="Email"></label>
+        <input asp-for="Email" type="email" autocomplete="username" required />
+        <span asp-validation-for="Email" class="validation"></span>
+        <label asp-for="Password"></label>
+        <input asp-for="Password" autocomplete="current-password" required />
+        <span asp-validation-for="Password" class="validation"></span>
+        <button class="button primary" type="submit">Entrar</button>
+    </form>
+</section>

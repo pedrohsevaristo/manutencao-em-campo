@@ -1,0 +1,57 @@
+@model WorkOrderDetails
+@{
+    var details = Model.Details;
+    var ticket = details.Ticket;
+    ViewData["Title"] = ticket.Title;
+}
+<a class="back" asp-action="Index">← Chamados</a>
+<header class="page-heading">
+    <div>
+        <p class="reference">Chamado #@ticket.Id</p>
+        <h1>@ticket.Title</h1>
+        <p class="lede">@ticket.Location</p>
+    </div>
+    <div class="heading-pills">
+        <span class="pill priority-@ticket.Priority.ToString().ToLowerInvariant()">Prioridade @ticket.Priority.Label().ToLowerInvariant()</span>
+        <span class="pill status-@ticket.Status.ToString().ToLowerInvariant()">@ticket.Status.Label()</span>
+    </div>
+</header>
+<div class="detail-grid">
+    <section class="panel content-panel">
+        <h2>Descrição</h2>
+        <p class="description">@details.Description</p>
+        <h2>Responsável</h2>
+        <p>@(ticket.AssignedToName ?? "Sem responsável")</p>
+        @if (ticket.Status == TicketStatus.Open)
+        {
+            <form class="fields" asp-action="Assign" asp-route-id="@ticket.Id" method="post">
+                <div asp-validation-summary="All" class="validation" role="alert"></div>
+                <label for="technician">Técnico responsável</label>
+                <select id="technician" name="TechnicianId" required>
+                    <option value="">Selecione um técnico</option>
+                    @foreach (var technician in Model.Technicians)
+                    {
+                        <option value="@technician.Id" selected="@(technician.Id == details.AssignedToId ? "selected" : null)">@technician.Name</option>
+                    }
+                </select>
+                <button class="button primary" type="submit">Salvar responsável</button>
+            </form>
+        }
+    </section>
+    <section class="panel content-panel">
+        <h2>Histórico</h2>
+        <ol class="timeline">
+            @foreach (var entry in details.History)
+            {
+                <li>
+                    <strong>@entry.Action.Label()</strong>
+                    <span class="ticket-meta">@entry.Actor · @entry.OccurredAt.LocalDate()</span>
+                    @if (entry.Note is { } note)
+                    {
+                        <p class="description">@note</p>
+                    }
+                </li>
+            }
+        </ol>
+    </section>
+</div>

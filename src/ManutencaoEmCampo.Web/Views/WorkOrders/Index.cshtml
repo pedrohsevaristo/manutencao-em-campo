@@ -1,0 +1,80 @@
+@model TicketPage
+@{
+    ViewData["Title"] = "Chamados";
+    var status = (TicketStatus?)ViewData["Status"];
+    var filters = new (TicketStatus? Status, string Label)[]
+    {
+        (null, "Todos"),
+        (TicketStatus.Open, "Abertos"),
+        (TicketStatus.InProgress, "Em atendimento"),
+        (TicketStatus.Completed, "Concluídos")
+    };
+}
+<header class="page-heading">
+    <div>
+        <h1>Chamados</h1>
+        <p class="lede">Acompanhe os serviços e atribua responsáveis.</p>
+    </div>
+    <a class="button primary" asp-action="Create"><span aria-hidden="true">＋</span> Novo chamado</a>
+</header>
+<section class="panel">
+    <nav class="tabs" aria-label="Filtrar por status">
+        @foreach (var filter in filters)
+        {
+            <a class="tab @(status == filter.Status ? "active" : "")"
+               asp-action="Index" asp-route-status="@filter.Status"
+               asp-route-pageSize="@Model.PageSize"
+               aria-current="@(status == filter.Status ? "page" : null)">@filter.Label</a>
+        }
+    </nav>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="empty">Nenhum chamado nesta página.</div>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Chamado</th>
+                        <th scope="col">Prioridade</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Responsável</th>
+                        <th scope="col">Abertura</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>
+                            <a class="ticket-link" asp-action="Details" asp-route-id="@item.Id">@item.Title</a>
+                            <span class="ticket-meta">#@item.Id · @item.Location</span>
+                        </td>
+                        <td><span class="pill priority-@item.Priority.ToString().ToLowerInvariant()">@item.Priority.Label()</span></td>
+                        <td><span class="pill status-@item.Status.ToString().ToLowerInvariant()">@item.Status.Label()</span></td>
+                        <td>@(item.AssignedToName ?? "Sem responsável")</td>
+                        <td>@item.CreatedAt.LocalDate()</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    <footer class="panel-footer">
+        <span>@Model.Total @(Model.Total == 1 ? "chamado" : "chamados")</span>
+        <nav class="pagination" aria-label="Páginas de chamados">
+            @if (Model.Page > 1)
+            {
+                <a class="button secondary compact" asp-action="Index" asp-route-status="@status"
+                   asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page - 1)">Anterior</a>
+            }
+            @if (Model.Page * Model.PageSize < Model.Total)
+            {
+                <a class="button secondary compact" asp-action="Index" asp-route-status="@status"
+                   asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page + 1)">Próxima</a>
+            }
+        </nav>
+    </footer>
+</section>

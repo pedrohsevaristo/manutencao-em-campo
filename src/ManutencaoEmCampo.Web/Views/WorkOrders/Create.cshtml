@@ -1,0 +1,30 @@
+@model CreateTicket
+@{
+    ViewData["Title"] = "Novo chamado";
+}
+<a class="back" asp-action="Index">← Chamados</a>
+<header class="page-heading"><h1>Novo chamado</h1></header>
+<form asp-action="Create" method="post" class="panel form-panel fields">
+    <div asp-validation-summary="ModelOnly" class="validation" role="alert"></div>
+    <label asp-for="Title"></label>
+    <input asp-for="Title" required minlength="5" maxlength="100" />
+    <span asp-validation-for="Title" class="validation"></span>
+    <label asp-for="Location"></label>
+    <input asp-for="Location" required maxlength="100" />
+    <span asp-validation-for="Location" class="validation"></span>
+    <label asp-for="Priority"></label>
+    <select asp-for="Priority">
+        @foreach (var priority in Enum.GetValues<TicketPriority>())
+        {
+            <option value="@priority">@priority.Label()</option>
+        }
+    </select>
+    <span asp-validation-for="Priority" class="validation"></span>
+    <label asp-for="Description"></label>
+    <textarea asp-for="Description" rows="5" required minlength="10" maxlength="1000"></textarea>
+    <span asp-validation-for="Description" class="validation"></span>
+    <div class="actions">
+        <a class="button secondary" asp-action="Index">Cancelar</a>
+        <button class="button primary" type="submit">Registrar chamado</button>
+    </div>
+</form>

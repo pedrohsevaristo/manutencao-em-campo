@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#132b29" />
+    <title>@ViewData["Title"] · Manutenção em Campo</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <a href="#conteudo" class="skip-link">Pular para o conteúdo</a>
+        <div class="shell">
+            <aside class="sidebar">
+                <a class="brand" asp-controller="WorkOrders" asp-action="Index">
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <span>Manutenção<br />em Campo</span>
+                </a>
+                <nav aria-label="Menu principal">
+                    <a class="nav-link" asp-controller="WorkOrders" asp-action="Index">Chamados</a>
+                </nav>
+                <div class="sidebar-account">
+                    <div class="account-name">@Actor.From(User).Name</div>
+                    <div class="account-role">Supervisão</div>
+                    <form asp-controller="Account" asp-action="Logout" method="post">
+                        <button type="submit" class="logout">Sair</button>
+                    </form>
+                </div>
+            </aside>
+            <main id="conteudo" class="main">
+                @if (TempData["Notice"] is string notice)
+                {
+                    <div class="notice" role="status">@notice</div>
+                }
+                @RenderBody()
+            </main>
+        </div>
+    }
+    else
+    {
+        <main class="guest" id="conteudo">@RenderBody()</main>
+    }
+</body>
+</html>
