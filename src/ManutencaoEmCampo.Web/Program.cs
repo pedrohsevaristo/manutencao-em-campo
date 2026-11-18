@@ -5,11 +5,15 @@ using ManutencaoEmCampo.Web.Data;
 using ManutencaoEmCampo.Web.Tickets;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+var demo = builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Demo:Enabled");
+if (demo)
+    builder.Services.AddDataProtection().AddKeyManagementOptions(options => options.XmlRepository = new DemoKeyRepository());
 var sqlite = builder.Environment.IsDevelopment() && builder.Configuration["Database:Provider"] == "Sqlite";
 var connection = builder.Configuration.GetConnectionString(sqlite ? "Sqlite" : "SqlServer")
     ?? throw new InvalidOperationException("Configure a cadeia de conexão do banco de dados.");
@@ -84,7 +88,7 @@ app.UseAuthorization();
 app.MapStaticAssets();
 app.MapControllers();
 
-if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Demo:Enabled"))
+if (demo)
     await DemoData.InitializeAsync(app.Services, sqlite, app.Configuration["Demo:Password"]);
 
 await app.RunAsync();
