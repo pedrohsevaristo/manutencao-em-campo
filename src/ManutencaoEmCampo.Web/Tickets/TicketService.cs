@@ -18,8 +18,12 @@ public sealed class TicketService(WorkDbContext db, UserManager<WorkUser> users,
             query = query.Where(ticket => ticket.Status == status);
 
         var total = await query.CountAsync(cancellationToken);
+        var offset = (filter.Page - 1) * filter.PageSize;
+        if (offset >= total)
+            return new TicketPage([], filter.Page, filter.PageSize, total);
+
         var items = await query.OrderByDescending(ticket => ticket.CreatedAt).ThenByDescending(ticket => ticket.Id)
-            .Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize)
+            .Skip(offset).Take(filter.PageSize)
             .Select(ToSummary).ToListAsync(cancellationToken);
         return new TicketPage(items, filter.Page, filter.PageSize, total);
     }

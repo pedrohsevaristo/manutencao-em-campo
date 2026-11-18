@@ -17,20 +17,16 @@ if (-not ($sdks -match '^10\.')) {
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
 $env:Database__Provider = $Database
 $env:Demo__Enabled = 'true'
+$env:Demo__AllowHttp = 'true'
+$env:Mobile__WebOrigin = 'http://localhost:8081'
 $env:Demo__Password = if ($env:DEMO_PASSWORD) { $env:DEMO_PASSWORD } else { 'CampoLocal!2026' }
 
 Push-Location -LiteralPath $repo
 try {
     if ($Database -eq 'SqlServer') {
-        if (-not $env:MSSQL_SA_PASSWORD) {
-            throw 'Defina MSSQL_SA_PASSWORD no ambiente antes de iniciar o SQL Server.'
+        if (-not $env:ConnectionStrings__SqlServer) {
+            throw 'Configure ConnectionStrings__SqlServer com a identidade limitada de execução e o certificado, conforme o README.'
         }
-
-        docker compose up -d --wait
-        $connection = [System.Data.Common.DbConnectionStringBuilder]::new()
-        $connection.ConnectionString = 'Server=localhost,14333;Database=ManutencaoEmCampo;User ID=sa;Encrypt=True;TrustServerCertificate=True'
-        $connection['Password'] = $env:MSSQL_SA_PASSWORD
-        $env:ConnectionStrings__SqlServer = $connection.ConnectionString
     }
 
     & $Dotnet restore src/ManutencaoEmCampo.Web --configfile (Join-Path $repo 'NuGet.Config')

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Runtime.Serialization;
@@ -15,12 +16,14 @@ internal static class Program
     public static async Task<int> Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
-        var address = args.Length == 0 ? "http://localhost:5180" : args[0];
-        if (args.Length > 1 || !Uri.TryCreate(address, UriKind.Absolute, out var origin)
+        var demo = args.Length > 0 && args[0] == "--demo";
+        var addressIndex = demo ? 1 : 0;
+        var address = args.Length > addressIndex ? args[addressIndex] : demo ? "http://localhost:5180" : null;
+        if (args.Length > addressIndex + 1 || !Uri.TryCreate(address, UriKind.Absolute, out var origin)
             || !string.IsNullOrEmpty(origin.UserInfo)
-            || (origin.Scheme != Uri.UriSchemeHttps && !(origin.Scheme == Uri.UriSchemeHttp && origin.IsLoopback)))
+            || (origin.Scheme != Uri.UriSchemeHttps && !(demo && origin.Scheme == Uri.UriSchemeHttp && origin.IsLoopback)))
         {
-            Console.Error.WriteLine("Informe um endereço HTTPS ou use o servidor local da demonstração.");
+            Console.Error.WriteLine("Informe o endereço HTTPS da API ou use --demo para a demonstração local.");
             return 1;
         }
 
@@ -39,7 +42,8 @@ internal static class Program
 
         try
         {
-            using var client = new HttpClient { BaseAddress = origin, Timeout = TimeSpan.FromSeconds(10) };
+            using var handler = new HttpClientHandler { AllowAutoRedirect = false };
+            using var client = new HttpClient(handler) { BaseAddress = origin, Timeout = TimeSpan.FromSeconds(10) };
             var login = new Login { Email = email, Password = password };
             using var content = new ByteArrayContent(Serialize(login));
             content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
@@ -47,8 +51,17 @@ internal static class Program
             var session = await ReadAsync<Session>(response);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
 
-            using var ticketsResponse = await client.GetAsync("/api/chamados?pageSize=10");
-            var page = await ReadAsync<TicketPage>(ticketsResponse);
+            TicketPage page;
+            try
+            {
+                using var ticketsResponse = await client.GetAsync("/api/chamados?pageSize=10");
+                page = await ReadAsync<TicketPage>(ticketsResponse);
+            }
+            finally
+            {
+                await EndSessionAsync(client);
+            }
+
             Console.WriteLine("Manutenção em Campo | Consulta .NET Framework 4.8");
             Console.WriteLine($"Exibindo {page.Items.Count} de {page.Total} chamados da conta.");
             foreach (var ticket in page.Items)
@@ -70,6 +83,21 @@ internal static class Program
             Console.Error.WriteLine("A API retornou uma resposta em formato inesperado.");
             return 1;
         }
+    }
+
+    private static async Task EndSessionAsync(HttpClient client)
+    {
+        try
+        {
+            using var response = await client.DeleteAsync("/api/session");
+            if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.Unauthorized)
+                return;
+        }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException)
+        {
+            // The server also expires sessions that cannot be revoked when the client exits.
+        }
+        Console.Error.WriteLine("A API não confirmou o encerramento da sessão.");
     }
 
     private static string Label(string status) => status switch

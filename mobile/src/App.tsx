@@ -5,7 +5,7 @@ import {
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import {
-  actionLabels, ApiError, completeTicket, getTicket, listTickets, login,
+  actionLabels, ApiError, completeTicket, endSession, getTicket, listTickets, login,
   priorityLabels, startTicket, statusLabels,
 } from './api';
 import type { Details, Status, Ticket } from './api';
@@ -91,6 +91,8 @@ function TechnicianWorkspace({ session, onLogout }: { session: Session; onLogout
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [refresh, setRefresh] = useState(0);
@@ -132,7 +134,7 @@ function TechnicianWorkspace({ session, onLogout }: { session: Session; onLogout
   }
 
   async function change(completing: boolean) {
-    if (selected === null || saving) return;
+    if (selected === null || saving || signingOut) return;
     if (completing && note.trim().length < 10) {
       setError('Descreva o serviço realizado em pelo menos 10 caracteres.');
       return;
@@ -155,12 +157,28 @@ function TechnicianWorkspace({ session, onLogout }: { session: Session; onLogout
     }
   }
 
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setLogoutError('');
+    try {
+      await endSession(token);
+      onLogout();
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) onLogout('Sua sessão terminou. Entre novamente.');
+      else setLogoutError('Não foi possível encerrar a sessão. Tente sair novamente.');
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   return (
     <>
       <View style={styles.toolbar}>
         <Text style={styles.muted}>{session.name}</Text>
-        <Button label="Sair" onPress={() => onLogout()} secondary />
+        <Button label={signingOut ? 'Saindo…' : 'Sair'} onPress={signOut} disabled={signingOut || saving} secondary />
       </View>
+      {!!logoutError && <Text accessibilityRole="alert" style={styles.error}>{logoutError}</Text>}
       {selected === null ? (
         <>
           <Text accessibilityRole="header" style={styles.title}>Meus chamados</Text>
@@ -217,14 +235,14 @@ function TechnicianWorkspace({ session, onLogout }: { session: Session; onLogout
           <Text style={styles.muted}>{details.ticket.location}</Text>
           <Text style={styles.body}>{details.description}</Text>
           {details.ticket.status === 'Open' && (
-            <Button label="Iniciar atendimento" onPress={() => change(false)} disabled={saving} />
+            <Button label="Iniciar atendimento" onPress={() => change(false)} disabled={saving || signingOut} />
           )}
           {details.ticket.status === 'InProgress' && (
             <>
               <Text style={styles.label}>Serviço realizado</Text>
               <TextInput accessibilityLabel="Serviço realizado" style={[styles.input, styles.multiline]} value={note}
                 onChangeText={setNote} multiline maxLength={1000} placeholder="Descreva o que foi feito" />
-              <Button label="Concluir atendimento" onPress={() => change(true)} disabled={saving} />
+              <Button label="Concluir atendimento" onPress={() => change(true)} disabled={saving || signingOut} />
             </>
           )}
           <Text accessibilityRole="header" style={styles.cardTitle}>Histórico</Text>

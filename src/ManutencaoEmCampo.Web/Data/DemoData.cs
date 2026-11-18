@@ -15,7 +15,7 @@ public static class DemoData
         var provider = scope.ServiceProvider;
         var db = provider.GetRequiredService<WorkDbContext>();
         if (sqlite)
-            await db.Database.EnsureCreatedAsync();
+            await DemoSqliteSchema.InitializeAsync(db);
         else
             await db.Database.MigrateAsync();
 

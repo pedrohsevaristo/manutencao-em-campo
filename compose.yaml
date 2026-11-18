@@ -1,20 +1,61 @@
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:2022-latest@sha256:4525e3efac9f3e241cb003bb2ff2a82818b502f37e12049d788b1a9fa7e13b7f
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: Developer
-      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Defina MSSQL_SA_PASSWORD}"
+      MSSQL_MEMORY_LIMIT_MB: "2048"
+      MSSQL_HEALTH_TLS_NAME: "${MSSQL_HEALTH_TLS_NAME:-localhost}"
+      MSSQL_HEALTH_DATABASE: "${MSSQL_HEALTH_DATABASE:-ManutencaoEmCampo}"
+    entrypoint:
+      - /bin/bash
+      - -euc
+      - |
+        MSSQL_SA_PASSWORD="$$(cat /run/secrets/mssql_bootstrap_password)"
+        test -n "$$MSSQL_SA_PASSWORD"
+        export MSSQL_SA_PASSWORD
+        install -m 0400 /run/tls-input/sqlserver.key /etc/maintenance-tls/sqlserver.key
+        install -m 0400 /run/tls-input/sqlserver.pem /etc/maintenance-tls/sqlserver.pem
+        exec /opt/mssql/bin/launch_sqlservr.sh "$$@"
+      - sqlserver-bootstrap
+    command: ["/opt/mssql/bin/sqlservr"]
     ports:
-      - "127.0.0.1:14333:1433"
+      - "127.0.0.1:${MSSQL_HOST_PORT:-14333}:1433"
+    secrets:
+      - mssql_bootstrap_password
+      - mssql_health_password
     volumes:
       - sql-data:/var/opt/mssql
+      - ./sql/mssql-tls.conf:/var/opt/mssql/mssql.conf:ro
+      - "${MSSQL_TLS_CERT_FILE:?Defina MSSQL_TLS_CERT_FILE}:/run/tls-input/sqlserver.pem:ro"
+      - "${MSSQL_TLS_KEY_FILE:?Defina MSSQL_TLS_KEY_FILE}:/run/tls-input/sqlserver.key:ro"
+      - "${MSSQL_TLS_CA_FILE:?Defina MSSQL_TLS_CA_FILE}:/run/tls-input/ca.pem:ro"
+    tmpfs:
+      - /etc/maintenance-tls:rw,noexec,nosuid,nodev,uid=10001,gid=10001,mode=0700
+    cpus: 2
+    mem_limit: 3g
+    pids_limit: 512
+    restart: "on-failure:3"
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -b -Q 'SELECT 1' -o /dev/null"]
+      test:
+        - CMD-SHELL
+        - |
+          SQLCMDPASSWORD="$$(cat /run/secrets/mssql_health_password)" &&
+          test -n "$$SQLCMDPASSWORD" &&
+          export SQLCMDPASSWORD SSL_CERT_FILE=/run/tls-input/ca.pem SSL_CERT_DIR=/etc/maintenance-tls &&
+          exec /opt/mssql-tools18/bin/sqlcmd -S tcp:127.0.0.1,1433 -Nm \
+            -F "$$MSSQL_HEALTH_TLS_NAME" -U manutencao_health \
+            -d "$$MSSQL_HEALTH_DATABASE" -b -l 3 -t 3 -Q "SET NOCOUNT ON; SELECT 1;"
       interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 15s
+      timeout: 8s
+      retries: 3
+      start_period: 30s
+
+secrets:
+  mssql_bootstrap_password:
+    file: "${MSSQL_BOOTSTRAP_PASSWORD_FILE:?Defina MSSQL_BOOTSTRAP_PASSWORD_FILE}"
+  mssql_health_password:
+    file: "${MSSQL_HEALTH_PASSWORD_FILE:?Defina MSSQL_HEALTH_PASSWORD_FILE}"
 
 volumes:
   sql-data:

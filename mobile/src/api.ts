@@ -1,4 +1,4 @@
-const base = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5180').replace(/\/$/, '');
+import { resolveApiOrigin } from './apiOrigin';
 
 export type Status = 'Open' | 'InProgress' | 'Completed';
 export type Priority = 'Low' | 'Normal' | 'High';
@@ -53,6 +53,8 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, token?: string, method = 'GET', body?: object): Promise<T> {
+  const base = resolveApiOrigin(process.env.EXPO_PUBLIC_API_URL,
+    __DEV__ && process.env.EXPO_PUBLIC_LOCAL_DEMO === '1');
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body) headers['Content-Type'] = 'application/json';
@@ -63,6 +65,7 @@ async function request<T>(path: string, token?: string, method = 'GET', body?: o
     const response = await fetch(`${base}${path}`, {
       method,
       headers,
+      redirect: 'error',
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
@@ -92,9 +95,14 @@ async function request<T>(path: string, token?: string, method = 'GET', body?: o
 export async function login(email: string, password: string) {
   const { accessToken } = await request<{ accessToken: string }>('/api/session', undefined, 'POST', { email, password });
   const user = await request<{ name: string; role: string }>('/api/session', accessToken);
-  if (user.role !== 'Technician') throw new Error('Use uma conta de técnico para entrar no app.');
+  if (user.role !== 'Technician') {
+    await endSession(accessToken);
+    throw new Error('Use uma conta de técnico para entrar no app.');
+  }
   return { accessToken, name: user.name };
 }
+
+export const endSession = (token: string) => request<void>('/api/session', token, 'DELETE');
 
 export function listTickets(token: string, status: Status | null, page: number) {
   const filter = status ? `&status=${status}` : '';

@@ -1,18 +1,21 @@
+using ManutencaoEmCampo.Web.Data;
 using ManutencaoEmCampo.Web.Tickets;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ManutencaoEmCampo.Web.Controllers;
 
 [ApiController]
 [Authorize(AuthenticationSchemes = SessionSchemes.Api, Roles = Roles.Operators)]
 [Route("api/chamados")]
+[EnableRateLimiting(TrafficPolicy.Operations)]
 public sealed class TicketsApiController(TicketService tickets) : ControllerBase
 {
     private Actor CurrentActor => Actor.From(User);
 
-    [HttpGet]
+    [HttpGet, EnableRateLimiting(TrafficPolicy.TicketList)]
     public async Task<ActionResult<TicketPage>> List([FromQuery] TicketFilter filter, CancellationToken cancellationToken) =>
         await tickets.ListAsync(CurrentActor, filter, cancellationToken);
 
@@ -29,7 +32,7 @@ public sealed class TicketsApiController(TicketService tickets) : ControllerBase
         try
         {
             var id = await tickets.CreateAsync(input, CurrentActor, cancellationToken);
-            return CreatedAtAction(nameof(Details), new { id }, new { id });
+            return Created(Url.Action(nameof(Details), new { id })!, new { id });
         }
         catch (TicketConflict conflict)
         {

@@ -1,16 +1,19 @@
+using ManutencaoEmCampo.Web.Data;
 using ManutencaoEmCampo.Web.Tickets;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ManutencaoEmCampo.Web.Controllers;
 
 [Authorize(Roles = Roles.Supervisor)]
 [AutoValidateAntiforgeryToken]
+[EnableRateLimiting(TrafficPolicy.Operations)]
 public sealed class WorkOrdersController(TicketService tickets) : Controller
 {
     private Actor CurrentActor => Actor.From(User);
 
-    [HttpGet("/")]
+    [HttpGet("/"), EnableRateLimiting(TrafficPolicy.TicketList)]
     public async Task<IActionResult> Index([FromQuery] TicketFilter filter, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
