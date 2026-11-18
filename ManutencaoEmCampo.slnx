@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/ManutencaoEmCampo.Legacy/ManutencaoEmCampo.Legacy.csproj" />
     <Project Path="src/ManutencaoEmCampo.Web/ManutencaoEmCampo.Web.csproj" />
   </Folder>
 </Solution>
